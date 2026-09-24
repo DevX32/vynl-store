@@ -1,15 +1,17 @@
 /**
  * Validates the Vynl plugin store catalogs.
  *
- *   bun scripts/validate-store.ts [catalog.json ...]
+ *   bun scripts/validate-store.ts [--artifacts] [catalog.json ...]
  *
  * Checks each catalog (defaults: plugins.json and the bundled fallback):
  *   - JSON parses and matches the PluginCatalogFile shape (version + plugins)
  *   - unique, kebab-case ids; non-empty name/description/author
  *   - categories are known (mirrors PLUGIN_CATEGORIES in web/src/lib/plugins/types.ts)
  *   - semver versions, https URLs, ISO-8601 addedAt dates, no unknown fields
- *   - downloadUrls hosted in this repo resolve to files that actually exist
- *   - example zips: catalog id/version match examples/<dir>/package.json
+ *   - store-hosted downloadUrls never target the private main repo
+ *   - with --artifacts: referenced zips must exist in the working tree and
+ *     match examples/<dir>/package.json — run in the store repo's CI, which
+ *     owns the artifacts (this repo keeps only the catalog and skips them)
  *
  * Exits 1 with a list of problems, 0 when everything checks out.
  */
@@ -18,10 +20,20 @@ import { join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "..");
 
+const ARGS = process.argv.slice(2);
+
+/**
+ * Require referenced artifacts to exist in the working tree. Set by the store
+ * repo's CI, which hosts them; runs here are catalog-only (examples/ lives in
+ * the store repo), so without the flag the existence check would false-fail.
+ */
+const REQUIRE_ARTIFACTS = ARGS.includes("--artifacts");
+
 /** Catalogs to validate: CLI args win, else both catalogs of the main repo. */
+const catalogArgs = ARGS.filter((arg) => !arg.startsWith("--"));
 const CATALOGS: readonly string[] =
-  process.argv.length > 2
-    ? process.argv.slice(2)
+  catalogArgs.length > 0
+    ? catalogArgs
     : ["plugins.json", "web/src/lib/plugins/fallback-catalog.json"];
 
 /** Public store repo slug, lowercased (raw URLs compare case-insensitively). */
@@ -106,9 +118,11 @@ function optionalString(
 }
 
 /**
- * If a downloadUrl targets raw.githubusercontent.com on the store repo,
- * the referenced file must exist in the working tree. Example artifacts
- * additionally get cross-checked against their source package.json.
+ * If a downloadUrl targets raw.githubusercontent.com on the store repo, the
+ * referenced file must exist in the working tree — checked only under
+ * --artifacts (the artifacts live in the store repo, not here). Example zips
+ * additionally get cross-checked against their source package.json when that
+ * source is present.
  */
 function checkLocalArtifact(
   url: string,
@@ -136,9 +150,11 @@ function checkLocalArtifact(
     return;
   }
   if (!existsSync(join(ROOT, relPath))) {
-    fail(
-      `${at}: downloadUrl points at "${relPath}" but that file does not exist in the repo`,
-    );
+    if (REQUIRE_ARTIFACTS) {
+      fail(
+        `${at}: downloadUrl points at "${relPath}" but that file does not exist in the repo`,
+      );
+    }
     return;
   }
 
