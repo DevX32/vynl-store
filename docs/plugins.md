@@ -352,8 +352,10 @@ fetches, and `plugins/` holds the plugin sources and zips. To publish:
    (`web/src/lib/plugins/fallback-catalog.json`, kept byte-identical) for
    the next Vynl release.
 
-Clients see the new catalog after GitHub's raw-CDN TTL (about 5 minutes);
-in-app update checks force a refresh.
+Clients pick up a new catalog within about 5 minutes: the Store tab refetches
+once its snapshot ages past that window, and **Check for updates** (or the
+startup auto-update pass) forces a cache-busted refresh that bypasses the
+raw-CDN cache entirely.
 
 ### Catalog format
 
@@ -391,7 +393,9 @@ in-app update checks force a refresh.
 - The **Auto-update Plugins** switch (at the top of the Plugins UI, on by
   default) installs available updates automatically at startup.
 - **Check for updates** on the Store tab only *reports* ("N update(s)
-  available" / "All plugins are up to date").
+  available" / "All plugins are up to date"). Both this and the startup pass
+  refetch the catalog with a cache-busting parameter, so they always see the
+  live `plugins.json` rather than a CDN-cached copy.
 
 ### Installation methods
 
