@@ -1,0 +1,13 @@
+{
+  "name": "hello-vynl",
+  "version": "1.0.0",
+  "description": "Example plugin demonstrating the Vynl plugin API.",
+  "author": "Vynl",
+  "license": "MIT",
+  "main": "index.js",
+  "vynl": {
+    "displayName": "Hello Vynl",
+    "categories": ["other", "lyrics"],
+    "permissions": ["network"]
+  }
+}
