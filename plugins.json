@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "plugins": [
+    {
+      "id": "hello-vynl",
+      "name": "Hello Vynl",
+      "description": "Example plugin demonstrating the Vynl plugin API: a settings section, a home section, and a lyrics provider.",
+      "author": "Vynl",
+      "repo": "DevX32/vynl-store",
+      "categories": ["other"],
+      "tags": ["example", "getting-started"],
+      "version": "1.0.0",
+      "downloadUrl": "https://raw.githubusercontent.com/DevX32/vynl-store/main/examples/hello-vynl.zip",
+      "homepage": "https://github.com/DevX32/vynl-store",
+      "addedAt": "2026-09-24T00:00:00Z"
+    }
+  ]
+}
