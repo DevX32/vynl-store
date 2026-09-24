@@ -181,6 +181,65 @@ Sections are removed automatically when the plugin is disabled or removed;
 the explicit `unregister*` methods are available if you want to swap
 sections at runtime.
 
+A plugin can also own a full page. The host adds one sidebar entry per
+plugin and hands your `mount` callback a container element every time the
+page is opened; build plain DOM inside it (the app's CSS custom properties —
+`var(--line)`, `var(--accent)`, `var(--radius-sm)`, ... — are available, and
+so are the global `.mono` / `.display` utility classes):
+
+```js
+const route = api.UI.registerPage(
+  { title: "Listen Along" },
+  (container) => {
+    container.replaceChildren();
+    const heading = document.createElement("h1");
+    heading.textContent = "Listen Along";
+    container.appendChild(heading);
+    return () => container.replaceChildren(); // optional cleanup on navigate-away
+  },
+);
+```
+
+One page per plugin (registering again replaces it) and the route id is
+`plugin:<pluginId>`. Pages disappear automatically on disable/remove.
+
+### Player
+
+`api.Player` observes playback and drives **shared playback** — the mechanism
+behind synchronized listening sessions. Control methods require the `player`
+permission; `getState()` / `isShared()` are read-only and need none.
+
+```js
+const st = api.Player.getState();
+// { playing, position, shared, lyrics: { text, kind } | null,
+//   track: { id, title, artist, album, duration, path } | null }
+
+// Follow a remote session: call this repeatedly with fresh state. The host
+// caches the audio once per cacheKey, then diffs seeks / pause-play /
+// metadata and keeps the player in sync.
+await api.Player.playShared({
+  sourceUrl: signedHttpsAudioUrl, // host downloads it into its shared-audio cache
+  cacheKey: "session-id/track.mp3", // dedupes downloads
+  title, artist, album, duration,
+  coverUrl: signedHttpsCoverUrl, // remote http(s) URLs only
+  lyrics, // stored on the shared track
+  time: 42.5, // target playhead in seconds
+  playing: true,
+});
+
+api.Player.pause(); // only acts while isShared() is true
+api.Player.seek(10);
+api.Player.stopShared(); // release the player
+
+// Re-share the current local file — host-validated asset URL or null:
+const url = await api.Player.getLocalFileUrl("audio"); // "audio" | "cover"
+await api.Player.clearAudioCache();
+```
+
+While shared playback is active, auto-advance is suppressed: the shared track
+owns the player until `stopShared()` (or the user picks their own track).
+Playback control never affects a normal (non-shared) track.
+
 ### Providers
 
 Providers are the main way plugins change Vynl's behavior. Register them in
@@ -255,6 +314,7 @@ plugin goes away, so unsubscription is optional.
 | ---------- | ----------------------------- |
 | `network`  | `api.Http.fetch`              |
 | `shell`    | `api.Shell.openExternal`      |
+| `player`   | `api.Player` control methods and local file URLs |
 
 Declare them under `vynl.permissions`. Unknown permissions are ignored, and
 everything else the plugin touches is host-mediated — the permission layer is
@@ -281,10 +341,12 @@ shows a banner. To point at your own catalog, edit `DEFAULT_STORE_SOURCES` in
 ### Publishing
 
 This repo **is** the store — `plugins.json` here is the catalog the app
-fetches, and `examples/` holds the plugin sources and zips. To publish:
+fetches, and `examples/` (samples) plus `plugins/` (shipped plugins) hold the
+plugin sources and zips. To publish:
 
-1. Edit `plugins.json` (and `examples/` when the plugin itself changes —
-   keep the catalog `version` in sync with the example's `package.json`).
+1. Edit `plugins.json` (and the plugin's folder when the plugin itself changes
+   — keep the catalog `version` in sync with its `package.json` in
+   `plugins/<dir>` or `examples/<dir>`).
 2. Push to `main` — CI validates the catalog, the artifacts, and the
    version parity between them.
 3. Copy the new catalog into the app's bundled fallback
@@ -375,3 +437,9 @@ examples/hello-vynl/
 A prebuilt copy lives at
 [`examples/hello-vynl.zip`](https://raw.githubusercontent.com/DevX32/vynl-store/main/examples/hello-vynl.zip)
 and is referenced by the root [`plugins.json`](../plugins.json) catalog.
+
+For a full-featured plugin, see
+[`plugins/listen-along`](https://github.com/DevX32/vynl-store/tree/main/plugins/listen-along)
+— a real-time synchronized listening plugin (own page, settings, lyrics
+provider, shared playback over Supabase Realtime + WebRTC, hand-rolled
+REST/Storage clients since plugins can't use npm packages).
