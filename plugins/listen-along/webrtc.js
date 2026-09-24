@@ -130,7 +130,14 @@ export class WebrtcSync {
     const timer = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("webrtc signal timeout")), 8000),
     );
-    await Promise.race([this.realtime.join(topic, { signal: (p) => this.onSignal(p) }), timer]);
+    // onSignal is async: a synchronous try/catch would not catch its
+    // rejections, so own the promise here.
+    const onMessage = (payload) => {
+      void this.onSignal(payload).catch((e) => {
+        console.warn("[listen-along] signal handling failed:", e);
+      });
+    };
+    await Promise.race([this.realtime.join(topic, { signal: onMessage }), timer]);
   }
 
   sendSignal(payload) {

@@ -1,6 +1,6 @@
 {
   "name": "listen-along",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Listen together in real time: host a session, share your code, and friends follow your playback (audio included) over Supabase Realtime + WebRTC.",
   "author": "Vynl",
   "license": "MIT",

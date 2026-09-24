@@ -111,6 +111,7 @@ let _followingRemote = false;
 let _followGen = 0;
 
 let _myPeerId = null;
+let _lastAppliedAt = 0;
 let _syncInFlight = false;
 let _syncDirty = false;
 let _lastSyncedPath = null;
@@ -359,6 +360,13 @@ export function syncTrack() {
 async function playRemoteAudio(opts) {
   const sampledAt = opts.updatedAt ?? Date.now();
   if (!opts.audioKey) return; // host audio not available yet
+
+  // The REST poll (10s) can hand us a peer row that predates what the
+  // realtime feed already delivered (e.g. right after a track switch) —
+  // applying it would roll playback back to the old track. 2s of slack
+  // tolerates equal timestamps.
+  if (sampledAt + 2000 < _lastAppliedAt) return;
+  if (sampledAt > _lastAppliedAt) _lastAppliedAt = sampledAt;
 
   const source = await share.resolveAudioSource(opts.audioKey);
   if (!source || !_active || _mode !== "joiner") return;
@@ -778,6 +786,7 @@ export async function leaveSession() {
   _lastSyncedTime = 0;
   _lastHeartbeatAt = 0;
   _lastAppliedSentAt = 0;
+  _lastAppliedAt = 0;
   _remoteLyrics = null;
   share.clearShareState();
   notify();
