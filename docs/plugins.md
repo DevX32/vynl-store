@@ -341,12 +341,11 @@ shows a banner. To point at your own catalog, edit `DEFAULT_STORE_SOURCES` in
 ### Publishing
 
 This repo **is** the store — `plugins.json` here is the catalog the app
-fetches, and `examples/` (samples) plus `plugins/` (shipped plugins) hold the
-plugin sources and zips. To publish:
+fetches, and `plugins/` holds the plugin sources and zips. To publish:
 
 1. Edit `plugins.json` (and the plugin's folder when the plugin itself changes
    — keep the catalog `version` in sync with its `package.json` in
-   `plugins/<dir>` or `examples/<dir>`).
+   `plugins/<dir>`).
 2. Push to `main` — CI validates the catalog, the artifacts, and the
    version parity between them.
 3. Copy the new catalog into the app's bundled fallback
@@ -363,17 +362,17 @@ in-app update checks force a refresh.
   "version": 1,
   "plugins": [
     {
-      "id": "hello-vynl",
-      "name": "Hello Vynl",
-      "description": "Example plugin ...",
+      "id": "listen-along",
+      "name": "Listen Along",
+      "description": "Real-time synchronized listening sessions ...",
       "author": "Vynl",
       "repo": "DevX32/vynl-store",
       "categories": ["other"],
-      "tags": ["example"],
-      "version": "1.0.0",
-      "downloadUrl": "https://.../hello-vynl.zip",
-      "homepage": "https://github.com/DevX32/vynl-store",
-      "addedAt": "2026-09-24T00:00:00Z"
+      "tags": ["social", "sync"],
+      "version": "1.0.1",
+      "downloadUrl": "https://.../plugins/listen-along.zip",
+      "homepage": "https://github.com/DevX32/vynl-store/tree/main/plugins/listen-along",
+      "addedAt": "2026-09-25T00:00:00Z"
     }
   ]
 }
@@ -421,25 +420,26 @@ in-app update checks force a refresh.
 - **State** — `web/src/state/plugins.svelte.ts` owns the lifecycle: every
   transition funnels through load/unload so registrations never leak.
 
-## Example
+## Reference plugin
 
-The example plugin lives in the store repo:
-[`examples/hello-vynl`](https://github.com/DevX32/vynl-store/tree/main/examples/hello-vynl)
-exercises the full surface — a settings section, a home section, a lyrics
-provider, and event logging:
+[`plugins/listen-along`](https://github.com/DevX32/vynl-store/tree/main/plugins/listen-along)
+is a full-featured plugin — its own page, a settings section, a lyrics
+provider, and shared playback over Supabase Realtime + WebRTC, with
+hand-rolled REST/Storage/Realtime clients since plugins can't use npm
+packages:
 
 ```
-examples/hello-vynl/
+plugins/listen-along/
 ├── package.json   # manifest with the vynl field
-└── index.js       # default export with lifecycle hooks
+├── index.js       # default export with lifecycle hooks
+├── net.js         # Supabase REST + Storage
+├── realtime.js    # Realtime WebSocket client
+├── webrtc.js      # WebRTC data-channel sync
+├── share.js       # audio/cover upload + signed playback URLs
+├── state.js       # host/join state machine
+└── ui.js          # page DOM + styles
 ```
 
 A prebuilt copy lives at
-[`examples/hello-vynl.zip`](https://raw.githubusercontent.com/DevX32/vynl-store/main/examples/hello-vynl.zip)
+[`plugins/listen-along.zip`](https://raw.githubusercontent.com/DevX32/vynl-store/main/plugins/listen-along.zip)
 and is referenced by the root [`plugins.json`](../plugins.json) catalog.
-
-For a full-featured plugin, see
-[`plugins/listen-along`](https://github.com/DevX32/vynl-store/tree/main/plugins/listen-along)
-— a real-time synchronized listening plugin (own page, settings, lyrics
-provider, shared playback over Supabase Realtime + WebRTC, hand-rolled
-REST/Storage clients since plugins can't use npm packages).

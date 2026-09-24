@@ -10,9 +10,9 @@
  *   - semver versions, https URLs, ISO-8601 addedAt dates, no unknown fields
  *   - store-hosted downloadUrls never target the private main repo
  *   - with --artifacts: referenced zips must exist in the working tree and
- *     match their checked-in <examples|plugins>/<dir>/package.json — run in
- *     the store repo's CI, which owns the artifacts (the main repo keeps only
- *     the catalog and skips them)
+ *     match their checked-in plugins/<dir>/package.json — run in the store
+ *     repo's CI, which owns the artifacts (the main repo keeps only the
+ *     catalog and skips them)
  *
  * Exits 1 with a list of problems, 0 when everything checks out.
  */
@@ -25,7 +25,7 @@ const ARGS = process.argv.slice(2);
 
 /**
  * Require referenced artifacts to exist in the working tree. Set by the store
- * repo's CI, which hosts them; runs here are catalog-only (examples/ lives in
+ * repo's CI, which hosts them; runs here are catalog-only (plugins/ lives in
  * the store repo), so without the flag the existence check would false-fail.
  */
 const REQUIRE_ARTIFACTS = ARGS.includes("--artifacts");
@@ -159,9 +159,9 @@ function checkLocalArtifact(
     return;
   }
 
-  const source = /^(examples|plugins)\/([^/]+)\.zip$/.exec(relPath);
+  const source = /^plugins\/([^/]+)\.zip$/.exec(relPath);
   if (source === null || id === null) return;
-  const manifestPath = `${source[1]}/${source[2]}/package.json`;
+  const manifestPath = `plugins/${source[1]}/package.json`;
   const abs = join(ROOT, manifestPath);
   if (!existsSync(abs)) return; // zip without checked-in source — zip existence is enough
 
