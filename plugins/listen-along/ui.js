@@ -33,6 +33,8 @@ const T = {
   relayTitle: "Using your own relay",
   relayDesc:
     "This build uses Vynl's shared relay. Point it at your own Supabase project if you'd rather not.",
+  relayOwnDesc:
+    "You're using your own relay project. Save a different one, or switch back to Vynl's shared relay.",
   relayUrl: "Project URL",
   relayKey: "Anon key",
   relaySave: "Save",
@@ -93,20 +95,28 @@ const CSS = `
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   border-radius: var(--radius-sm);
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--font-mono);
+  font-size: 12px;
   letter-spacing: 0.04em;
   border: 1px solid transparent;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s,
+    transform 0.1s,
+    box-shadow 0.15s;
 }
 .la-btn:active:not(:disabled) { transform: scale(0.97); }
 .la-btn:disabled { opacity: 0.3; cursor: default; }
-.la-btn--sm { height: 36px; min-width: 92px; padding: 0 16px; font-size: 12px; }
-.la-btn--wide { width: 100%; height: 42px; font-size: 13px; }
+.la-btn--sm { padding: 7px 14px; font-size: 11px; }
+.la-btn--md { padding: 8px 16px; }
+.la-btn--wide { width: 100%; padding: 8px 16px; }
 .la-btn--primary {
+  gap: 8px;
   background: var(--accent-soft);
   color: var(--accent);
   font-weight: 500;
@@ -115,23 +125,32 @@ const CSS = `
 .la-btn--primary:not(:disabled):hover {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  color: var(--accent);
 }
 .la-btn--ghost {
-  background: transparent;
+  gap: 7px;
+  background: var(--bg-raise);
+  border-color: var(--line);
   color: var(--dim);
-  border-color: var(--line-strong);
-  font-size: 11px;
-  height: 32px;
-  padding: 0 14px;
 }
-.la-btn--ghost:hover { color: var(--text); border-color: var(--faint); }
+.la-btn--ghost:not(:disabled):hover {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+.la-btn--ghost:not(:disabled):active { background: var(--bg-raise); }
 .la-btn--danger {
+  gap: 8px;
   background: rgba(255, 107, 97, 0.08);
   color: var(--red);
   font-weight: 500;
-  border-color: rgba(255, 107, 97, 0.35);
+  border-color: var(--danger-border);
 }
-.la-btn--danger:not(:disabled):hover { background: rgba(255, 107, 97, 0.15); border-color: var(--red); }
+.la-btn--danger:not(:disabled):hover {
+  background: rgba(255, 107, 97, 0.15);
+  border-color: var(--danger-border-hover);
+  color: var(--red);
+}
 
 .la-spin {
   width: 13px; height: 13px;
@@ -149,19 +168,19 @@ const CSS = `
 .la-panel-desc { font-size: 12.5px; color: var(--faint); line-height: 1.5; max-width: 46ch; margin: 5px 0 0; }
 .la-panel-cta { margin-top: 16px; }
 
-.la-join-row { display: flex; gap: 8px; margin-top: 16px; }
+.la-join-row { display: flex; gap: 8px; margin-top: 16px; align-items: stretch; }
 .la-input {
-  height: 36px;
-  padding: 0 12px;
   background: var(--bg-raise);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  outline: none;
   color: var(--text);
   font-size: 12.5px;
   min-width: 0;
   transition: border-color 0.15s;
 }
-.la-input:focus { outline: none; border-color: var(--faint); }
+.la-input:focus { border-color: var(--faint); }
 .la-input::placeholder { color: var(--faint); }
 .la-code-input {
   flex: 1;
@@ -242,17 +261,24 @@ const CSS = `
 .la-code-row { display: flex; align-items: center; gap: 16px; }
 .la-code { font-size: 52px; font-weight: 600; letter-spacing: 0.16em; line-height: 1; user-select: all; }
 .la-copy {
-  display: flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px;
-  border: 1px solid var(--line-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: transparent;
+  background: var(--bg-raise);
   color: var(--dim);
   cursor: pointer;
   flex-shrink: 0;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
-.la-copy:hover { color: var(--text); border-color: var(--faint); }
+.la-copy:hover { background: var(--surface); border-color: var(--line-strong); color: var(--text); }
+.la-copy:active { background: var(--bg-raise); }
 
 .la-track { display: flex; align-items: center; gap: 14px; padding: 18px 0; }
 .la-track-art {
@@ -421,7 +447,7 @@ export function mountPage(container, ctx) {
           </div>
           <div class="la-relay-actions">
             <button class="la-btn la-btn--primary la-btn--sm la-cfg-save"></button>
-            <button class="la-btn la-btn--ghost la-cfg-revert"></button>
+            <button class="la-btn la-btn--ghost la-btn--sm la-cfg-revert"></button>
           </div>
         </div>
       </div>
@@ -484,6 +510,7 @@ export function mountPage(container, ctx) {
     trackMeta: q(".la-track-meta"),
     relayToggle: q(".la-relay-toggle"),
     relay: q(".la-relay"),
+    relayDesc: q(".la-relay .la-panel-desc"),
     cfgUrl: q(".la-cfg-url"),
     cfgKey: q(".la-cfg-key"),
     cfgSave: q(".la-cfg-save"),
@@ -493,6 +520,16 @@ export function mountPage(container, ctx) {
   const initial = ctx.getConfig();
   refs.cfgUrl.value = initial.url ?? "";
   refs.cfgKey.value = initial.key ?? "";
+
+  /**
+   * True when a relay override is actually in effect. The revert button only
+   * means something then — with no override the plugin is already on the
+   * shipped project, so clearing the fields would be a no-op.
+   */
+  function hasOverride() {
+    const cfg = ctx.getConfig();
+    return String(cfg?.url ?? "").trim().length > 0 || String(cfg?.key ?? "").trim().length > 0;
+  }
 
   function setBusyLabel(button, isBusy, label) {
     const spin = button.querySelector(".la-spin");
@@ -618,6 +655,9 @@ export function mountPage(container, ctx) {
 
     refs.relay.hidden = !showRelay;
     refs.relayToggle.textContent = showRelay ? T.hideSetup : T.setup;
+    const override = hasOverride();
+    refs.cfgRevert.hidden = !override;
+    refs.relayDesc.textContent = override ? T.relayOwnDesc : T.relayDesc;
   }
 
   session.setNotifier(render);

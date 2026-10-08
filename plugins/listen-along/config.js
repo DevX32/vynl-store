@@ -28,10 +28,4 @@ export function resolveProject(overrideUrl, overrideKey) {
   return normalizeProject(overrideUrl, overrideKey) ?? validDefault;
 }
 
-export function isUsingDefault(overrideUrl, overrideKey) {
-  if (validDefault === null) return false;
-  const override = normalizeProject(overrideUrl, overrideKey);
-  return override === null;
-}
-
 export { SIGN_TTL_S, SIGN_CACHE_TTL_MS };
