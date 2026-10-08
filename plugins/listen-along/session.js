@@ -415,7 +415,7 @@ export async function join(rawCode) {
     throw e;
   }
 
-  joinerTransport.start(getInstanceId(), `host:${code}`);
+  joinerTransport.start(getInstanceId());
 }
 
 export async function leave() {

@@ -45,7 +45,13 @@ export class HostTransport {
 
   async offerTo(joinerId) {
     if (this.destroyed || !this.myId) return;
-    if (this.peers.has(joinerId)) this.dropPeer(joinerId);
+
+    const existing = this.peers.get(joinerId);
+    if (existing?.dc?.readyState === "open") return;
+    if (existing?.pc && existing.pc.connectionState !== "failed" && existing.pc.connectionState !== "closed") {
+      if (existing.pc.signalingState === "have-local-offer") return;
+    }
+    if (existing) this.dropPeer(joinerId);
 
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     const slot = { pc, dc: null };
@@ -161,6 +167,7 @@ export class JoinerTransport {
     this.clockSamples = 0;
     this.helloTimer = null;
     this.pingTimer = null;
+    this.pendingIce = [];
     this.handlers = { onState: () => {}, onOpen: () => {}, onClose: () => {} };
   }
 
@@ -168,9 +175,8 @@ export class JoinerTransport {
     this.handlers = { ...this.handlers, ...handlers };
   }
 
-  start(myId, hostId) {
+  start(myId) {
     this.myId = myId;
-    this.hostId = hostId;
     this.signaling.onMessage((msg) => this.onSignal(msg));
     this.sayHello();
     this.helloTimer = setInterval(() => {
@@ -179,22 +185,41 @@ export class JoinerTransport {
   }
 
   sayHello() {
-    if (!this.myId || !this.hostId) return;
-    this.signaling.send({ kind: "hello", from: this.myId, to: this.hostId });
+    if (!this.myId) return;
+    this.signaling.send({ kind: "hello", from: this.myId });
   }
 
   onSignal(msg) {
     if (this.destroyed || !this.myId || !msg) return;
-    if (msg.from !== this.hostId) return;
+    if (msg.from === this.myId) return;
     if (msg.to && msg.to !== this.myId) return;
 
+    if (msg.kind === "host-ready") {
+      if (!this.open) this.sayHello();
+      return;
+    }
+
+    if (msg.kind === "bye") {
+      if (msg.from === this.hostId) this.markClosed();
+      return;
+    }
+
     if (msg.kind === "offer") {
+      if (this.open) return;
+      if (this.hostId && msg.from !== this.hostId) return;
+      this.hostId = msg.from;
       void this.answer(msg.sdp);
-    } else if (msg.kind === "ice") {
-      if (!msg.candidate || !this.pc) return;
-      this.pc.addIceCandidate(msg.candidate).catch((e) => {
-        console.warn("[listen-along] addIceCandidate failed:", e);
-      });
+      return;
+    }
+
+    if (msg.kind === "ice") {
+      if (!msg.candidate) return;
+      if (this.hostId && msg.from !== this.hostId) return;
+      if (!this.pc) {
+        this.pendingIce.push(msg.candidate);
+        return;
+      }
+      this.pc.addIceCandidate(msg.candidate).catch(() => {});
     }
   }
 
@@ -226,6 +251,9 @@ export class JoinerTransport {
 
     try {
       await pc.setRemoteDescription(sdp);
+      for (const candidate of this.pendingIce.splice(0)) {
+        await pc.addIceCandidate(candidate).catch(() => {});
+      }
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       this.signaling.send({
@@ -333,6 +361,7 @@ export class JoinerTransport {
       this.pc = null;
     }
     this.open = false;
+    this.pendingIce.length = 0;
   }
 
   destroy() {
@@ -341,6 +370,7 @@ export class JoinerTransport {
       this.signaling.send({ kind: "bye", from: this.myId, to: this.hostId });
     }
     this.teardownPc();
+    this.hostId = null;
     this.lastSeq = -1;
     this.clockOffsetMs = 0;
     this.clockSamples = 0;

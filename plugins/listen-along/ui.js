@@ -42,6 +42,7 @@ const T = {
 
   setup: "Setup",
   hideSetup: "Hide relay settings",
+  setUpRelay: "Set up a relay",
   leave: "Leave session",
   copyFailed: "Couldn't copy — select the code instead",
 };
@@ -69,6 +70,8 @@ const CSS = `
   scrollbar-width: none;
 }
 .la::-webkit-scrollbar { display: none; }
+
+.la [hidden] { display: none !important; }
 
 .la-hdr {
   display: flex;
@@ -185,6 +188,29 @@ const CSS = `
 }
 .la-note svg { flex-shrink: 0; margin-top: 2px; }
 
+.la-error {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-top: 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--red);
+}
+.la-error svg { flex-shrink: 0; margin-top: 2px; }
+.la-error-setup {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-left: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .la-status {
   display: flex;
   align-items: center;
@@ -272,7 +298,7 @@ export function mountPage(container, ctx) {
   let busy = false;
   let error = null;
   let copied = false;
-  let showRelay = false;
+  let showRelay = !session.isConfigured();
   let copiedTimer = null;
 
   const listeners = [];
@@ -311,9 +337,15 @@ export function mountPage(container, ctx) {
             </div>
           </section>
 
-          <div class="la-note" role="alert" hidden>
+          <div class="la-error" role="alert" hidden>
+            <span class="la-error-icon"></span>
+            <span class="la-error-text"></span>
+          </div>
+
+          <div class="la-note" hidden>
             <span class="la-note-icon"></span>
             <span class="la-note-text"></span>
+            <button class="la-error-setup la-note-setup">Set up a relay</button>
           </div>
         </div>
 
@@ -386,6 +418,9 @@ export function mountPage(container, ctx) {
   q(".la-cfg-save").textContent = T.relaySave;
   q(".la-cfg-revert").textContent = T.relayRevert;
   q(".la-note-icon").innerHTML = ICON.alert;
+  q(".la-error-icon").innerHTML = ICON.alert;
+  q(".la-note-setup").textContent = T.setUpRelay;
+  q(".la-error-setup").hidden = true;
 
   const refs = {
     idle: q(".la-idle"),
@@ -396,6 +431,9 @@ export function mountPage(container, ctx) {
     joinInput: q(".la-join-input"),
     note: q(".la-note"),
     noteText: q(".la-note-text"),
+    noteSetup: q(".la-note-setup"),
+    error: q(".la-error"),
+    errorText: q(".la-error-text"),
     dot: q(".la-dot"),
     role: q(".la-status-role"),
     statusText: q(".la-status-text"),
@@ -466,6 +504,9 @@ export function mountPage(container, ctx) {
     if (refs.joinInput.value !== joinCode) refs.joinInput.value = joinCode;
     refs.join.disabled = busy || joinCode.length !== 6 || !configured;
     setBusyLabel(refs.join, busy, T.joinCta);
+
+    refs.error.hidden = error === null;
+    if (error !== null) refs.errorText.textContent = error;
 
     refs.note.hidden = configured;
     refs.noteText.textContent = hasDefaultProject() ? T.relayNone : `${T.relayNone} ${T.relayDesc}`;
@@ -575,6 +616,11 @@ export function mountPage(container, ctx) {
   on(refs.relayToggle, "click", () => {
     showRelay = !showRelay;
     render();
+  });
+  on(refs.noteSetup, "click", () => {
+    showRelay = true;
+    render();
+    refs.cfgUrl.focus();
   });
   on(refs.joinInput, "input", (e) => {
     joinCode = session.normalizeCode(e.target.value);
