@@ -14,8 +14,7 @@ Do not rename, move, or delete existing paths: installed clients depend on
 these exact raw URLs.
 
 To publish: edit `plugins.json` (keep each entry's `version` in sync with its
-`plugins/<dir>/package.json`), commit to `main`, and CI validates the catalog
-+ artifacts. Then copy the catalog into the Vynl app repo's bundled fallback
-(`web/src/lib/plugins/fallback-catalog.json`) for the next release.
+`plugins/<dir>/package.json`), rebuild the plugin zip, and commit to `main`.
+CI validates the catalog and the artifacts.
 
 Every push runs `.github/workflows/validate.yml`.

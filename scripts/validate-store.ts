@@ -3,7 +3,7 @@
  *
  *   bun scripts/validate-store.ts [--artifacts] [catalog.json ...]
  *
- * Checks each catalog (defaults: plugins.json and the bundled fallback):
+ * Checks each catalog (defaults: plugins.json):
  *   - JSON parses and matches the PluginCatalogFile shape (version + plugins)
  *   - unique, kebab-case ids; non-empty name/description/author
  *   - categories are known (mirrors PLUGIN_CATEGORIES in web/src/lib/plugins/types.ts)
@@ -30,12 +30,10 @@ const ARGS = process.argv.slice(2);
  */
 const REQUIRE_ARTIFACTS = ARGS.includes("--artifacts");
 
-/** Catalogs to validate: CLI args win, else both catalogs of the main repo. */
+/** Catalogs to validate: CLI args win, else the store catalog. */
 const catalogArgs = ARGS.filter((arg) => !arg.startsWith("--"));
 const CATALOGS: readonly string[] =
-  catalogArgs.length > 0
-    ? catalogArgs
-    : ["plugins.json", "web/src/lib/plugins/fallback-catalog.json"];
+  catalogArgs.length > 0 ? catalogArgs : ["plugins.json"];
 
 /** Public store repo slug, lowercased (raw URLs compare case-insensitively). */
 const REPO_SLUG = "devx32/vynl-store";
@@ -302,18 +300,6 @@ const catalogs = CATALOGS.map((path) => ({
   path,
   data: validateCatalog(path),
 }));
-
-// Soft check: the bundled fallback usually mirrors the live catalog.
-const [live, fallback] = catalogs;
-if (live !== undefined && fallback !== undefined) {
-  if (live.data !== null && fallback.data !== null) {
-    if (JSON.stringify(live.data) !== JSON.stringify(fallback.data)) {
-      console.warn(
-        "⚠ Note: fallback-catalog.json differs from plugins.json (fine if intentional).",
-      );
-    }
-  }
-}
 
 if (errors.length > 0) {
   console.error(`\n✗ Store validation failed with ${errors.length} problem(s):\n`);

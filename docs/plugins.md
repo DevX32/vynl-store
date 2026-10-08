@@ -10,8 +10,8 @@ plus a built-in store for discovering, installing, and updating them.
 - **Lifecycle** — `onLoad` / `onEnable` / `onDisable` / `onUnload`.
 - **Host API** — settings, providers, UI contributions, events, CORS-free
   HTTP, and external links, gated by manifest permissions.
-- **Store** — a remote JSON catalog with a bundled fallback, search,
-  one-click install, and automatic updates.
+- **Store** — a remote JSON catalog with search, one-click install, and
+  automatic updates.
 
 Plugins are installed into `plugins/{id}/{version}/` inside Vynl's app data
 directory and tracked in a registry file. Everything is managed from the
@@ -333,10 +333,9 @@ https://raw.githubusercontent.com/DevX32/vynl-store/main/plugins.json
 The app ([`DevX32/Vynl`](https://github.com/DevX32/Vynl)) fetches it
 anonymously, so that repo can stay private.
 
-If the remote fetch fails or returns nothing, Vynl falls back to the bundled
-catalog (`web/src/lib/plugins/fallback-catalog.json` in the app repo) and
-shows a banner. To point at your own catalog, edit `DEFAULT_STORE_SOURCES` in
-`web/src/state/plugins.svelte.ts`.
+If the remote fetch fails or returns nothing, Vynl shows a banner and an empty
+Store tab — there is no bundled copy of the catalog. To point at your own
+catalog, edit `DEFAULT_STORE_SOURCES` in `web/src/state/plugins.svelte.ts`.
 
 ### Publishing
 
@@ -345,12 +344,9 @@ fetches, and `plugins/` holds the plugin sources and zips. To publish:
 
 1. Edit `plugins.json` (and the plugin's folder when the plugin itself changes
    — keep the catalog `version` in sync with its `package.json` in
-   `plugins/<dir>`).
+   `plugins/<dir>`), then rebuild the plugin zip.
 2. Push to `main` — CI validates the catalog, the artifacts, and the
    version parity between them.
-3. Copy the new catalog into the app's bundled fallback
-   (`web/src/lib/plugins/fallback-catalog.json`, kept byte-identical) for
-   the next Vynl release.
 
 Clients pick up a new catalog within about 5 minutes: the Store tab refetches
 once its snapshot ages past that window, and **Check for updates** (or the
