@@ -43,6 +43,10 @@ const T = {
   setup: "Setup",
   hideSetup: "Hide relay settings",
   setUpRelay: "Set up a relay",
+  sessionPeers: "Listeners",
+  sessionHost: "Host",
+  noListeners: "Nobody else here yet.",
+  noHostName: "Waiting for the host…",
   leave: "Leave session",
   copyFailed: "Couldn't copy — select the code instead",
 };
@@ -262,6 +266,25 @@ const CSS = `
 .la-track-name { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .la-track-meta { font-size: 11.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
 
+.la-listeners { padding: 18px 0; border-bottom: 1px solid var(--line); }
+.la-listeners-head {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 10px;
+}
+.la-list { display: flex; flex-direction: column; gap: 8px; }
+.la-list-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.la-list-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.la-list-name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.la-list-empty { font-size: 12.5px; color: var(--faint); }
+
 .la-foot { padding-top: 22px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .la-relay-toggle {
   background: none; border: 0; padding: 0;
@@ -373,6 +396,11 @@ export function mountPage(container, ctx) {
               <div class="la-track-meta mono"></div>
             </div>
           </div>
+
+          <div class="la-listeners" hidden>
+            <div class="la-listeners-head mono"></div>
+            <div class="la-list"></div>
+          </div>
         </div>
 
         <div class="la-foot">
@@ -442,6 +470,9 @@ export function mountPage(container, ctx) {
     code: q(".la-code"),
     copy: q(".la-copy"),
     art: q(".la-track-art"),
+    listeners: q(".la-listeners"),
+    listenersHead: q(".la-listeners-head"),
+    list: q(".la-list"),
     trackName: q(".la-track-name"),
     trackMeta: q(".la-track-meta"),
     relayToggle: q(".la-relay-toggle"),
@@ -489,6 +520,31 @@ export function mountPage(container, ctx) {
     );
   }
 
+  function renderListeners(names, emptyText) {
+    refs.listeners.hidden = names === null;
+    if (names === null) return;
+    if (names.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "la-list-empty mono";
+      empty.textContent = emptyText;
+      refs.list.replaceChildren(empty);
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for (const name of names) {
+      const row = document.createElement("div");
+      row.className = "la-list-row";
+      const dot = document.createElement("span");
+      dot.className = "la-list-dot";
+      const label = document.createElement("span");
+      label.className = "la-list-name display";
+      label.textContent = name;
+      row.append(dot, label);
+      frag.appendChild(row);
+    }
+    refs.list.replaceChildren(frag);
+  }
+
   function render() {
     const currentMode = session.getMode();
     const active = currentMode !== null;
@@ -529,6 +585,15 @@ export function mountPage(container, ctx) {
       }
       refs.statusText.textContent = statusText;
       refs.count.textContent = hosting ? listenerCount(session.getPeerCount()) : "";
+
+      if (hosting) {
+        refs.listenersHead.textContent = T.sessionPeers;
+        renderListeners(session.getListeners().map((l) => l.name), T.noListeners);
+      } else {
+        const name = session.getHostName();
+        refs.listenersHead.textContent = T.sessionHost;
+        renderListeners(name ? [name] : [], T.noHostName);
+      }
 
       refs.codeBlock.hidden = !hosting;
       refs.code.textContent = session.getCode();

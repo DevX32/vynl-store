@@ -26,6 +26,8 @@ const ANIMALS = [
 const NICKNAME_KEY = "vynl.listen_along_nickname";
 const INSTANCE_KEY = "vynl.instance_id";
 
+const DISPLAY_NAME_KEY = "displayName";
+
 let api = null;
 let notifier = () => {};
 let project = null;
@@ -33,6 +35,9 @@ let project = null;
 let mode = null;
 let code = "";
 let peerCount = 0;
+let displayName = "";
+let hostName = "";
+let listeners = [];
 let connected = false;
 let status = "idle";
 let statusDetail = "";
@@ -87,6 +92,21 @@ export function getPeerCount() {
   return peerCount;
 }
 
+/** Display name for this instance, as set in Settings. */
+export function getDisplayName() {
+  return displayName;
+}
+
+/** The host's display name, once a joiner has connected. */
+export function getHostName() {
+  return hostName;
+}
+
+/** Display names of the listeners currently connected to a hosting session. */
+export function getListeners() {
+  return listeners;
+}
+
 export function isConnected() {
   return connected;
 }
@@ -118,6 +138,7 @@ function getInstanceId() {
   return id;
 }
 
+/** Local fallback, used only when the host has no api.App.getDisplayName. */
 export function getNickname() {
   let nick = localStorage.getItem(NICKNAME_KEY);
   if (!nick) {
@@ -129,9 +150,10 @@ export function getNickname() {
   return nick;
 }
 
-export function setNickname(value) {
+/** Vynl owns the user's name; this only ever holds what the host reported. */
+export function setDisplayName(value) {
   const trimmed = String(value ?? "").trim();
-  if (trimmed.length > 0) localStorage.setItem(NICKNAME_KEY, trimmed);
+  displayName = trimmed.length > 0 ? trimmed : getNickname();
 }
 
 function generateCode() {
@@ -196,6 +218,8 @@ function clearState() {
   mode = null;
   code = "";
   peerCount = 0;
+  hostName = "";
+  listeners = [];
   connected = false;
   status = "idle";
   statusDetail = "";
@@ -223,6 +247,7 @@ function currentFrame() {
     trackKey: st.track?.path ?? null,
     lyrics: st.lyrics?.text ?? null,
     lyricsKind: st.lyrics?.kind ?? null,
+    name: displayName,
   };
 }
 
@@ -296,6 +321,14 @@ export async function host() {
   hostTransport.setHandlers({
     onPeerChange: (n) => {
       peerCount = n;
+      listeners = listeners.filter((l) => hostTransport?.peers.has(l.id));
+      notify();
+    },
+    onIdentify: (name, peerId) => {
+      const clean = String(name ?? "").trim();
+      if (!clean) return;
+      const rest = listeners.filter((l) => l.id !== peerId);
+      listeners = [...rest, { id: peerId, name: clean }];
       notify();
     },
     onPeerOpen: () => publish(true),
@@ -313,7 +346,7 @@ export async function host() {
     throw e;
   }
 
-  hostTransport.start(getInstanceId());
+  hostTransport.start(getInstanceId(), displayName);
 
   publishTimer = setInterval(() => publish(false), PUBLISH_INTERVAL_MS);
   setStatus("live", "Sharing");
@@ -328,6 +361,9 @@ async function applyRemoteState(frame, clockOffsetMs) {
   const st = api.Player.getState();
   const alreadyFollowing = st.shared && sameTrack(lastTrack, frame);
   following = true;
+  if (typeof frame.name === "string" && frame.name.trim().length > 0) {
+    hostName = frame.name.trim();
+  }
   lastTrack = {
     title: frame.title,
     artist: frame.artist,
@@ -415,7 +451,7 @@ export async function join(rawCode) {
     throw e;
   }
 
-  joinerTransport.start(getInstanceId());
+  joinerTransport.start(getInstanceId(), displayName);
 }
 
 export async function leave() {

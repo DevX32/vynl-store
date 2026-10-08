@@ -111,6 +111,12 @@ export class HostTransport {
         this.handlers.onNeedAudio(msg);
         return;
       }
+      if (msg?.type === "identify") {
+        if (typeof msg.name === "string") {
+          this.handlers.onIdentify?.(msg.name, peerId);
+        }
+        return;
+      }
       if (msg?.type === "ping" && msg.responder && dc.readyState === "open") {
         try {
           dc.send(JSON.stringify({ type: "pong", t: msg.t, serverNow: Date.now() }));
@@ -158,6 +164,7 @@ export class JoinerTransport {
     this.signaling = signaling;
     this.myId = null;
     this.hostId = null;
+    this.displayName = "";
     this.pc = null;
     this.dc = null;
     this.open = false;
@@ -175,8 +182,9 @@ export class JoinerTransport {
     this.handlers = { ...this.handlers, ...handlers };
   }
 
-  start(myId) {
+  start(myId, displayName) {
     this.myId = myId;
+    this.displayName = String(displayName ?? "");
     this.signaling.onMessage((msg) => this.onSignal(msg));
     this.sayHello();
     this.helloTimer = setInterval(() => {
@@ -275,6 +283,7 @@ export class JoinerTransport {
       this.stopTimers();
       this.handlers.onOpen();
       this.startPings();
+      this.identify();
     };
     dc.onclose = () => this.markClosed();
     dc.onmessage = (ev) => {
@@ -298,6 +307,14 @@ export class JoinerTransport {
     if (!Number.isFinite(msg.seq) || msg.seq <= this.lastSeq) return;
     this.lastSeq = msg.seq;
     this.handlers.onState(msg, this.clockOffsetMs);
+  }
+
+  /** Tell the host who we are, so it can label us in its listener list. */
+  identify() {
+    if (this.dc?.readyState !== "open") return;
+    try {
+      this.dc.send(JSON.stringify({ type: "identify", name: this.displayName }));
+    } catch {}
   }
 
   startPings() {

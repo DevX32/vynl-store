@@ -120,8 +120,18 @@ Every hook receives the same `api` object:
 ```ts
 api.pluginId;    // "my-plugin"
 api.permissions; // granted permissions, e.g. ["network"]
-api.apiVersion;  // PLUGIN_API_VERSION (currently 1)
+api.apiVersion;  // PLUGIN_API_VERSION (currently 2)
 ```
+
+### App
+
+```js
+api.App.getDisplayName(); // "Cosmic Fox"
+```
+
+The user's name as configured in **Settings → Display Name**, falling back to
+their random nickname when it is left blank. Added in API version 2 — on an
+older host `api.App` is undefined, so feature-detect rather than assume.
 
 ### Logger
 

@@ -1,14 +1,21 @@
 import * as session from "./session.js";
 import { mountPage } from "./ui.js";
-import { hasDefaultProject } from "./config.js";
 
 let api = null;
-let config = { url: "", key: "", nickname: "" };
+let config = { url: "", key: "" };
 let configUnsubs = [];
+
+/** Vynl owns the user's name; fall back if this host predates api.App. */
+function resolveDisplayName(a) {
+  try {
+    const name = a.App?.getDisplayName?.();
+    if (typeof name === "string" && name.trim()) return name.trim();
+  } catch {}
+  return session.getNickname();
+}
 
 function applyConfig() {
   session.configureProject(config.url, config.key);
-  session.setNickname(config.nickname);
 }
 
 export default {
@@ -20,52 +27,16 @@ export default {
     api = a;
     session.setApi(a);
 
-    const [url, key, nickname] = await Promise.all([
+    const [url, key] = await Promise.all([
       a.Settings.get("supabaseUrl"),
       a.Settings.get("supabaseKey"),
-      a.Settings.get("nickname"),
     ]);
     config = {
       url: String(url ?? ""),
       key: String(key ?? ""),
-      nickname: String(nickname ?? ""),
     };
     applyConfig();
-
-    const fields = [
-      {
-        key: "nickname",
-        title: "Nickname",
-        description: "Name other listeners see in the session.",
-        kind: "text",
-        default: session.getNickname(),
-      },
-    ];
-
-    if (!hasDefaultProject()) {
-      fields.unshift(
-        {
-          key: "supabaseUrl",
-          title: "Relay project URL",
-          description: "Project URL used for signaling and audio staging.",
-          kind: "text",
-          default: "",
-        },
-        {
-          key: "supabaseKey",
-          title: "Relay anon key",
-          description: "Anon (public) key for the same project.",
-          kind: "text",
-          default: "",
-        },
-      );
-    }
-
-    a.UI.registerSettingsSection({
-      id: "main",
-      title: "Listen Along",
-      fields,
-    });
+    session.setDisplayName(resolveDisplayName(a));
 
     a.UI.registerPage({ title: "Listen Along" }, (container) =>
       mountPage(container, {
@@ -98,10 +69,6 @@ export default {
       }),
       a.Settings.subscribe("supabaseKey", (v) => {
         config.key = String(v ?? "");
-        applyConfig();
-      }),
-      a.Settings.subscribe("nickname", (v) => {
-        config.nickname = String(v ?? "");
         applyConfig();
       }),
     ];
