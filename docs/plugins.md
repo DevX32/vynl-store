@@ -371,7 +371,7 @@ raw-CDN cache entirely.
       "repo": "DevX32/vynl-store",
       "categories": ["other"],
       "tags": ["social", "sync"],
-      "version": "1.0.1",
+      "version": "2.0.0",
       "downloadUrl": "https://.../plugins/listen-along.zip",
       "homepage": "https://github.com/DevX32/vynl-store/tree/main/plugins/listen-along",
       "addedAt": "2026-09-25T00:00:00Z"
@@ -428,22 +428,62 @@ raw-CDN cache entirely.
 
 [`plugins/listen-along`](https://github.com/DevX32/vynl-store/tree/main/plugins/listen-along)
 is a full-featured plugin — its own page, a settings section, a lyrics
-provider, and shared playback over Supabase Realtime + WebRTC, with
-hand-rolled REST/Storage/Realtime clients since plugins can't use npm
-packages:
+provider, and shared playback over a direct WebRTC connection, with a
+hand-rolled Realtime client since plugins can't use npm packages:
 
 ```
 plugins/listen-along/
 ├── package.json   # manifest with the vynl field
 ├── index.js       # default export with lifecycle hooks
-├── net.js         # Supabase REST + Storage
-├── realtime.js    # Realtime WebSocket client
-├── webrtc.js      # WebRTC data-channel sync
-├── share.js       # audio/cover upload + signed playback URLs
-├── state.js       # host/join state machine
-└── ui.js          # page DOM + styles
+├── config.js      # relay project: shipped default + user override
+├── signaling.js   # Supabase Realtime channel, handshake only
+├── transport.js   # WebRTC peer connections + ordered state frames
+├── bucket.js      # audio/cover staging + signed playback URLs
+├── session.js     # host/join state machine, single apply path
+├── ui.js          # page DOM + styles
+└── check.mjs      # import + pure-logic checks (run with bun/node)
 ```
 
 A prebuilt copy lives at
 [`plugins/listen-along.zip`](https://raw.githubusercontent.com/DevX32/vynl-store/main/plugins/listen-along.zip)
 and is referenced by the root [`plugins.json`](../plugins.json) catalog.
+
+### How it syncs
+
+The host is the **single writer** of playback state. It snapshots the player
+and publishes frames over a WebRTC data channel to every joiner; joiners never
+broadcast and never talk to each other. Each frame carries a monotonic `seq`,
+and a joiner drops anything it has already applied — so a reordered or
+duplicated frame can never roll playback backwards.
+
+Sync paths are deliberately singular. An earlier version of this plugin ran a
+WebRTC data channel, a Supabase broadcast topic and a 500ms REST poll of a
+`peers` table concurrently, each with its own clock, and reconciled the
+conflicts between them with a timestamp tolerance. One writer and one sequence
+number removed the need for that.
+
+Signaling rides the project's Realtime channel and carries only the
+offer/answer/ICE handshake; once peers are connected, nothing else passes
+through the backend. Clock skew is measured with a ping/pong round trip and
+smoothed over the last few samples, then used to extrapolate the playhead.
+
+### Zero setup
+
+`config.js` ships the relay project URL and anon key, so an install works with
+nothing entered. That project needs only Realtime enabled and the `listen-along`
+storage bucket created — there is no SQL schema, no tables, and no RPC
+functions, because session membership lives in the WebRTC connection itself.
+
+Self-hosters can override the project from Settings or the plugin page. The
+override wins when it validates and the shipped default is used otherwise.
+
+### Audio
+
+`api.Player.playShared` takes an HTTP URL — the Rust side does a plain GET and
+writes the bytes into its shared-audio cache — so audio cannot arrive over the
+data channel. Staged audio lives in the relay bucket, content-addressed by hash
+of the source URL so the same track is uploaded once across sessions and hosts.
+
+Uploads are **request-driven**: the host stages a track's audio the first time a
+joiner asks for it, rather than on every track change. A host with no listeners
+uploads nothing.
