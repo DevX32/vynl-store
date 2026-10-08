@@ -180,7 +180,7 @@ const CSS = `
   min-width: 0;
   transition: border-color 0.15s;
 }
-.la-input:focus { border-color: var(--faint); }
+.la-input:focus { border-color: var(--accent); }
 .la-input::placeholder { color: var(--faint); }
 .la-code-input {
   flex: 1;
