@@ -26,7 +26,8 @@ const ANIMALS = [
 const NICKNAME_KEY = "vynl.listen_along_nickname";
 const INSTANCE_KEY = "vynl.instance_id";
 
-const DISPLAY_NAME_KEY = "displayName";
+const T_STAGING_FAILED =
+  "Couldn't upload audio to the relay — the listen-along bucket may be missing or not writable.";
 
 let api = null;
 let notifier = () => {};
@@ -55,6 +56,8 @@ let stagedFor = null;
 let pendingStage = false;
 let remoteLyrics = null;
 let following = false;
+let stagingError = null;
+let lastRequestedKey = null;
 
 const wantedAudio = new Set();
 
@@ -105,6 +108,15 @@ export function getHostName() {
 /** Display names of the listeners currently connected to a hosting session. */
 export function getListeners() {
   return listeners;
+}
+
+/**
+ * Why audio could not be staged, when it could not. A missing or
+ * misconfigured relay bucket lands here, which is otherwise invisible: the
+ * host connects fine and the joiner simply never hears anything.
+ */
+export function getStagingError() {
+  return stagingError;
 }
 
 export function isConnected() {
@@ -231,6 +243,8 @@ function clearState() {
   pendingStage = false;
   remoteLyrics = null;
   following = false;
+  stagingError = null;
+  lastRequestedKey = null;
   wantedAudio.clear();
   bucket.clearSessionState();
 }
@@ -248,6 +262,7 @@ function currentFrame() {
     lyrics: st.lyrics?.text ?? null,
     lyricsKind: st.lyrics?.kind ?? null,
     name: displayName,
+    audioFailed: stagingError !== null,
   };
 }
 
@@ -291,10 +306,22 @@ async function stageForRequesters() {
     if (cover) stagedCoverKey = cover;
     if (audio || cover) {
       wantedAudio.clear();
+      if (stagingError !== null) {
+        stagingError = null;
+        notify();
+      }
       publish(true);
+    } else if (stagingError === null) {
+      // Usually a missing bucket or an RLS policy that rejects the anon role.
+      stagingError = T_STAGING_FAILED;
+      notify();
     }
   } catch (e) {
     console.warn("[listen-along] staging failed:", e);
+    if (stagingError === null) {
+      stagingError = e instanceof Error ? e.message : String(e);
+      notify();
+    }
   } finally {
     pendingStage = false;
   }
@@ -374,7 +401,10 @@ async function applyRemoteState(frame, clockOffsetMs) {
   let sourceUrl = null;
   if (frame.audioKey) {
     sourceUrl = await bucket.resolveSource(frame.audioKey);
-  } else if (frame.trackKey) {
+  } else if (frame.trackKey && frame.trackKey !== lastRequestedKey) {
+    // Ask once per track. Re-asking on every frame would spin forever when the
+    // host's bucket is unreachable, and the request can never succeed.
+    lastRequestedKey = frame.trackKey;
     joinerTransport.requestAudio(frame.trackKey);
   }
 
@@ -394,6 +424,9 @@ async function applyRemoteState(frame, clockOffsetMs) {
   const time = correctTime(frame.time, frame.playing, frame.sentAt, clockOffsetMs, frame.duration ?? 0);
 
   if (!sourceUrl && !alreadyFollowing) {
+    if (frame.audioFailed) {
+      setStatus("error", T_STAGING_FAILED);
+    }
     notify();
     return;
   }

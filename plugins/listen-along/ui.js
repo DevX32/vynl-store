@@ -388,6 +388,11 @@ export function mountPage(container, ctx) {
             </div>
           </div>
 
+          <div class="la-error" role="alert" hidden>
+            <span class="la-error-icon"></span>
+            <span class="la-error-text"></span>
+          </div>
+
           <div class="la-track">
             <div class="la-track-art"></div>
             <div class="la-track-text">
@@ -471,6 +476,8 @@ export function mountPage(container, ctx) {
     copy: q(".la-copy"),
     art: q(".la-track-art"),
     listeners: q(".la-listeners"),
+    sessionError: q(".la-active .la-error"),
+    sessionErrorText: q(".la-active .la-error-text"),
     listenersHead: q(".la-listeners-head"),
     list: q(".la-list"),
     trackName: q(".la-track-name"),
@@ -549,6 +556,7 @@ export function mountPage(container, ctx) {
     const currentMode = session.getMode();
     const active = currentMode !== null;
     const configured = session.isConfigured();
+    const stagingFailed = session.getStagingError();
 
     refs.idle.hidden = active;
     refs.active.hidden = !active;
@@ -563,6 +571,9 @@ export function mountPage(container, ctx) {
 
     refs.error.hidden = error === null;
     if (error !== null) refs.errorText.textContent = error;
+
+    refs.sessionError.hidden = active ? stagingFailed === null : true;
+    if (stagingFailed !== null) refs.sessionErrorText.textContent = stagingFailed;
 
     refs.note.hidden = configured;
     refs.noteText.textContent = hasDefaultProject() ? T.relayNone : `${T.relayNone} ${T.relayDesc}`;
