@@ -1,8 +1,8 @@
 export const BUCKET = "listen-along";
 
 export const DEFAULT_PROJECT = {
-  url: "",
-  key: "",
+  url: "https://fpbwhtfldctzpcifufvi.supabase.co",
+  key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwYndodGZsZGN0enBjaWZ1ZnZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NTU0ODIsImV4cCI6MjEwNTEzMTQ4Mn0.dcaG_Fb3xsSpx7wcepasiusaxSCNnlWp9JzX6JquUBI",
 };
 
 const URL_RE = /^https:\/\/[^\s/]+$/;
