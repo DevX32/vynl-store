@@ -467,7 +467,6 @@ export function mountPage(container, ctx) {
   idlePanels[1].querySelector(".la-panel-desc").textContent = T.joinDesc;
 
   q(".la-join-input").placeholder = T.codePlaceholder;
-  q(".la-join").textContent = T.joinCta;
   q(".la-code-label").textContent = T.shareCode;
   q(".la-track-label").textContent = T.nowPlaying;
   q(".la-relay .la-panel-title").textContent = T.relayTitle;
@@ -531,19 +530,18 @@ export function mountPage(container, ctx) {
     return String(cfg?.url ?? "").trim().length > 0 || String(cfg?.key ?? "").trim().length > 0;
   }
 
+  /**
+   * Rebuild a button's contents as spinner (while busy) + exactly one label
+   * span. Earlier code seeded buttons with a plain text node and then appended
+   * the label span next to it, so the caption rendered twice ("JoinJoin").
+   */
   function setBusyLabel(button, isBusy, label) {
-    const spin = button.querySelector(".la-spin");
-    if (isBusy && !spin) button.prepend(el('<span class="la-spin"></span>'));
-    if (!isBusy && spin) spin.remove();
-    const span = button.querySelector(".la-btn-label");
-    if (span) {
-      span.textContent = label;
-    } else {
-      const next = document.createElement("span");
-      next.className = "la-btn-label";
-      next.textContent = label;
-      button.appendChild(next);
-    }
+    button.replaceChildren();
+    if (isBusy) button.append(el('<span class="la-spin"></span>'));
+    const span = document.createElement("span");
+    span.className = "la-btn-label";
+    span.textContent = label;
+    button.append(span);
   }
 
   function listenerCount(n) {

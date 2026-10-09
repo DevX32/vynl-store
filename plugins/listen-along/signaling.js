@@ -20,6 +20,8 @@ export class RealtimeSignaling {
     this.lastJoinAt = 0;
     this.handler = () => {};
     this.pending = new Map();
+    /** Set when the initial join fails for a reason we know immediately. */
+    this.joinError = null;
   }
 
   connect() {
@@ -64,6 +66,10 @@ export class RealtimeSignaling {
       this.ws = null;
       this.joined = false;
       this.joinRef = null;
+      // A relay that rejects the anon key (rotated credentials, paused project)
+      // drops the socket during the handshake; reconnect sweeps cannot fix
+      // that, so record it instead of waiting out the join timeout.
+      if (!this.closed) this.joinError ??= "the relay closed the connection before the session opened";
       this.failPending("signaling socket closed");
       this.scheduleReconnect();
     };
@@ -129,6 +135,7 @@ export class RealtimeSignaling {
   expect(ref, resolve, reject, timeoutMs = JOIN_TIMEOUT_MS) {
     const timer = setTimeout(() => {
       this.pending.delete(ref);
+      this.joinError ??= "the relay did not answer the join";
       reject(new Error("signaling timed out"));
     }, timeoutMs);
     this.pending.set(ref, { resolve, reject, timer });
@@ -174,6 +181,7 @@ export class RealtimeSignaling {
 
   async join(topic) {
     this.topic = topic;
+    this.joinError = null;
     this.connect();
     if (!this.ws) throw new Error("Could not open a signaling socket");
     this.joinTopic(topic);
@@ -183,7 +191,16 @@ export class RealtimeSignaling {
         if (this.joined) {
           clearInterval(poll);
           resolve();
-        } else if (this.closed || Date.now() - started > JOIN_TIMEOUT_MS) {
+          return;
+        }
+        // A known failure (dropped socket, refused join) beats waiting out the
+        // timeout: it is reported as soon as the relay says no.
+        if (this.joinError !== null) {
+          clearInterval(poll);
+          reject(new Error(`Could not reach the signaling server (${this.joinError})`));
+          return;
+        }
+        if (this.closed || Date.now() - started > JOIN_TIMEOUT_MS) {
           clearInterval(poll);
           reject(new Error("Could not reach the signaling server"));
         }
@@ -211,7 +228,11 @@ export class RealtimeSignaling {
         this.pending.delete(msg.ref);
         clearTimeout(p.timer);
         if (msg.payload?.status === "ok") p.resolve();
-        else p.reject(new Error(msg.payload?.response?.reason ?? "Signaling was rejected"));
+        else {
+          const reason = msg.payload?.response?.reason ?? "signaling was rejected";
+          this.joinError ??= reason;
+          p.reject(new Error("Signaling was rejected"));
+        }
         return;
       }
       if (msg.payload?.status === "ok" && msg.ref === this.joinRef) this.joined = true;
